@@ -1,4 +1,4 @@
-package com.example.blockblastplayer.ui
+package com.example.blockblastplayer
 
 import android.content.Intent
 import android.net.Uri
