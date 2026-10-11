@@ -120,33 +120,27 @@ class ScreenCapture(private val context: Context) {
             val w = image.width
             val h = image.height
             val pixels = IntArray(w * h)
-            // PixelFormat.RGBA_8888 puts the bytes in memory as R,G,B,A, but
-            // ByteBuffer.get(IntArray) treats the first byte as the MOST
-            // significant one. So a raw read gives (R<<24)|(G<<16)|(B<<8)|A.
-            // [RgbImage] wants red in bits 16..23, which is just a >>8.
-            if (pixelStride == 4 && rowStride == w * 4) {
-                buffer.rewind()
-                val raw = IntArray(w * h)
-                buffer.get(raw)
-                for (i in raw.indices) pixels[i] = (raw[i] ushr 8) and 0xFFFFFF
-            } else {
-                // Padded rows: read one row at a time. Only get(ByteArray) is
-                // available on Android's ByteBuffer, so we size the chunk to
-                // whatever is actually left in the buffer.
-                val chunk = ByteArray(minOf(rowStride, buffer.remaining()))
-                for (y in 0 until h) {
-                    if (chunk.isEmpty()) break
-                    buffer.get(chunk)
-                    for (x in 0 until w) {
-                        val o = x * pixelStride
-                        if (o + 2 < chunk.size) {
-                            val r = chunk[o].toInt() and 0xFF
-                            val g = chunk[o + 1].toInt() and 0xFF
-                            val b = chunk[o + 2].toInt() and 0xFF
-                            pixels[y * w + x] = (r shl 16) or (g shl 8) or b
-                        }
+
+            // PixelFormat.RGBA_8888 stores the bytes in memory as R,G,B,A.
+            // Android's ByteBuffer has no bulk get(IntArray), so we read one
+            // row at a time and assemble the pixels by hand. Going row by row
+            // also skips any row padding for free.
+            val rowBytes = ByteArray(rowStride)
+            buffer.rewind()
+            var row = 0
+            while (row < h && buffer.remaining() >= rowStride) {
+                buffer.get(rowBytes)
+                var o = 0
+                for (x in 0 until w) {
+                    if (o + 2 < rowBytes.size) {
+                        val r = rowBytes[o].toInt() and 0xFF
+                        val g = rowBytes[o + 1].toInt() and 0xFF
+                        val b = rowBytes[o + 2].toInt() and 0xFF
+                        pixels[row * w + x] = (r shl 16) or (g shl 8) or b
                     }
+                    o += pixelStride
                 }
+                row++
             }
             RgbImage(w, h, pixels)
         } catch (e: Exception) {

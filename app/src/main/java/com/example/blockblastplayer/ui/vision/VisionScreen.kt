@@ -126,7 +126,7 @@ fun VisionScreen(
                 Button(
                     enabled = hasOverlay,
                     onClick = {
-                        val onCaptured: (Int, Intent?) -> Unit = { code, data ->
+                        requestCapture { code, data ->
                             if (code != 0 || data == null) {
                                 lastRead = "Screen capture was cancelled."
                             } else {
@@ -140,7 +140,6 @@ fun VisionScreen(
                                 }
                             }
                         }
-                        requestCapture(onCaptured)
                     }
                 ) { Text("Start screen capture") }
                 if (!hasOverlay) {
@@ -179,10 +178,9 @@ fun VisionScreen(
                         Switch(
                             checked = hasNotifications,
                             onCheckedChange = {
-                                val onResult: (Boolean) -> Unit = { granted ->
+                                requestNotificationPermission { granted ->
                                     hasNotifications = granted
                                 }
-                                requestNotificationPermission(onResult)
                             }
                         )
                     }

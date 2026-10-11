@@ -83,9 +83,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             BlockBlastTheme {
                 AppRoot(
-                    requestCapture = ::requestScreenCapture,
-                    requestNotificationPermission = ::requestNotificationPermission,
-                    openOverlaySettings = ::openOverlaySettings
+                    // requestScreenCapture *takes* a callback, so it has type
+                    // ((Int, Intent?) -> Unit) -> Unit. AppRoot wants a plain
+                    // (Int, Intent?) -> Unit, hence the small adapter.
+                    requestCapture = { callback -> requestScreenCapture(callback) },
+                    requestNotificationPermission = { callback ->
+                        requestNotificationPermission(callback)
+                    },
+                    openOverlaySettings = { openOverlaySettings() }
                 )
             }
         }
