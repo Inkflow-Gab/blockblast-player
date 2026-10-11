@@ -54,43 +54,51 @@ object BoardAnalysis {
      * very reliable fragmentation signal.
      */
     fun emptyComponents(mask: Long): Int {
-        var remaining = (~mask) and FULL_MASK
+        // Kotlin spells bitwise NOT as .inv() - there is no `~` operator.
+        var remaining = mask.inv() and FULL_MASK
         var components = 0
-        // A plain stack of single-bit cell masks; 64 is the most it can ever need.
-        val stack = LongArray(CELLS)
+        // Each empty cell is pushed at most once, so 64 slots always suffice.
+        val stack = IntArray(CELLS)
+
         while (remaining != 0L) {
             components++
-            val seed = remaining and (-remaining)          // lowest set bit
             var size = 0
+            // lowest set bit -> its index
+            val seed = (remaining and remaining.inv()).toInt()
             stack[size++] = seed
-            remaining = remaining and seed.inv()
+            remaining = remaining and (1L shl seed).inv()
+
             while (size > 0) {
-                val cell = stack[--size]
-                val r = cell / SIZE
-                val c = cell % SIZE
-                if (r > 0) {
-                    val n = cell - SIZE
-                    if (((remaining ushr n) and 1L) == 1L) {
-                        remaining = remaining and (1L shl n).inv(); stack[size++] = 1L shl n
-                    }
+                val index = stack[--size]
+                val r = index / SIZE
+                val c = index % SIZE
+
+                var n = -1
+                if (r > 0) n = index - SIZE
+                if (n >= 0 && (remaining and (1L shl n)) != 0L) {
+                    remaining = remaining and (1L shl n).inv()
+                    stack[size++] = n
                 }
-                if (r < SIZE - 1) {
-                    val n = cell + SIZE
-                    if (((remaining ushr n) and 1L) == 1L) {
-                        remaining = remaining and (1L shl n).inv(); stack[size++] = 1L shl n
-                    }
+
+                n = -1
+                if (r < SIZE - 1) n = index + SIZE
+                if (n >= 0 && (remaining and (1L shl n)) != 0L) {
+                    remaining = remaining and (1L shl n).inv()
+                    stack[size++] = n
                 }
-                if (c > 0) {
-                    val n = cell - 1
-                    if (((remaining ushr n) and 1L) == 1L) {
-                        remaining = remaining and (1L shl n).inv(); stack[size++] = 1L shl n
-                    }
+
+                n = -1
+                if (c > 0) n = index - 1
+                if (n >= 0 && (remaining and (1L shl n)) != 0L) {
+                    remaining = remaining and (1L shl n).inv()
+                    stack[size++] = n
                 }
-                if (c < SIZE - 1) {
-                    val n = cell + 1
-                    if (((remaining ushr n) and 1L) == 1L) {
-                        remaining = remaining and (1L shl n).inv(); stack[size++] = 1L shl n
-                    }
+
+                n = -1
+                if (c < SIZE - 1) n = index + 1
+                if (n >= 0 && (remaining and (1L shl n)) != 0L) {
+                    remaining = remaining and (1L shl n).inv()
+                    stack[size++] = n
                 }
             }
         }
@@ -145,7 +153,7 @@ object BoardAnalysis {
      * A big value means the board still has breathing room.
      */
     fun largestEmptyRectangle(mask: Long): Int {
-        val empty = ~mask and FULL_MASK
+        val empty = mask.inv() and FULL_MASK
         val heights = IntArray(SIZE)
         var best = 0
         for (r in 0 until SIZE) {
@@ -233,7 +241,7 @@ object BoardAnalysis {
             if (colBits == full) lineMask = lineMask or COLUMN_MASKS[c]
         }
         if (lineMask == 0L) return mask to 0
-        return (mask and lineMask.inv()) to java.lang.Integer.bitCount(lineMask)
+        return (mask and lineMask.inv()) to java.lang.Long.bitCount(lineMask)
     }
 
     private val COLUMN_MASKS = LongArray(SIZE) { c ->

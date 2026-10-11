@@ -91,10 +91,11 @@ class Board(val size: Int = DEFAULT_SIZE) {
         }
         if (lineMask == 0L) return 0
         mask = mask and lineMask.inv()
-        filled -= java.lang.Integer.bitCount(lineMask)
+        // Long.bitCount, not Integer.bitCount - the mask is a Long.
+        filled -= java.lang.Long.bitCount(lineMask)
         // keep the boolean view in sync with the mask
-        for (i in cells.indices) cells[i] = (mask ushr i) and 1L == 1L
-        return java.lang.Integer.bitCount(lineMask)
+        for (i in cells.indices) cells[i] = ((mask ushr i) and 1L) == 1L
+        return java.lang.Long.bitCount(lineMask)
     }
 
     /** Rows (as a list) that are currently complete. */

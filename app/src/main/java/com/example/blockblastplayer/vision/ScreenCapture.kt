@@ -130,18 +130,19 @@ class ScreenCapture(private val context: Context) {
                 buffer.get(raw)
                 for (i in raw.indices) pixels[i] = (raw[i] ushr 8) and 0xFFFFFF
             } else {
-                // copy row by row, skipping any padding
-                val row = ByteArray(rowStride)
-                buffer.rewind()
+                // Padded rows: read one row at a time. Only get(ByteArray) is
+                // available on Android's ByteBuffer, so we size the chunk to
+                // whatever is actually left in the buffer.
+                val chunk = ByteArray(minOf(rowStride, buffer.remaining()))
                 for (y in 0 until h) {
-                    val toRead = minOf(rowStride, buffer.remaining())
-                    buffer.get(row, 0, toRead)
+                    if (chunk.isEmpty()) break
+                    buffer.get(chunk)
                     for (x in 0 until w) {
                         val o = x * pixelStride
-                        if (o + 2 < toRead) {
-                            val r = row[o].toInt() and 0xFF
-                            val g = row[o + 1].toInt() and 0xFF
-                            val b = row[o + 2].toInt() and 0xFF
+                        if (o + 2 < chunk.size) {
+                            val r = chunk[o].toInt() and 0xFF
+                            val g = chunk[o + 1].toInt() and 0xFF
+                            val b = chunk[o + 2].toInt() and 0xFF
                             pixels[y * w + x] = (r shl 16) or (g shl 8) or b
                         }
                     }
