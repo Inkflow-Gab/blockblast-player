@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Notification icon.
+
+    Android tints notification icons to the system foreground colour, so this
+    must be a flat white silhouette on transparent - no colour, no alpha
+    tricks, no thin details that vanish at 24dp. A solid "L" tromino is the
+    same mark as the launcher icon, so the notification and the icon are
+    obviously the same app.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+
+    <!-- vertical arm of the L -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M3,2 h6 v20 h-6 z" />
+    <!-- horizontal arm of the L -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M9,9 h12 v6 h-12 z" />
+</vector>

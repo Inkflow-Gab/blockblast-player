@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Minimalist launcher icon.
+
+    Idea: one flat colour plate with a single white "L" tromino on top of a
+    faint board outline. Two colours, no gradients, no detail - it still reads
+    clearly at 48dp on a launcher, which is the real test for an icon.
+
+    The L is the same shape the solver draws first, so the icon is a tiny
+    summary of what the app does.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- faint board plate -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.16"
+        android:pathData="M24,24 h60 a8,8 0 0 1 8,8 v44 a8,8 0 0 1 -8,8 h-60 a8,8 0 0 1 -8,-8 v-44 a8,8 0 0 1 8,-8 z" />
+
+    <!-- the suggested piece: an L tromino, three 20dp blocks -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,54 h20 a3,3 0 0 1 3,3 v20 a3,3 0 0 1 -3,3 h-20 a3,3 0 0 1 -3,-3 v-20 a3,3 0 0 1 3,-3 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M57,54 h17 a3,3 0 0 1 3,3 v20 a3,3 0 0 1 -3,3 h-17 a3,3 0 0 1 -3,-3 v-20 a3,3 0 0 1 3,-3 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M57,31 h17 a3,3 0 0 1 3,3 v20 a3,3 0 0 1 -3,3 h-17 a3,3 0 0 1 -3,-3 v-20 a3,3 0 0 1 3,-3 z" />
+</vector>

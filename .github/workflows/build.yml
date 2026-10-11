@@ -1,0 +1,52 @@
+name: Build debug APK
+
+# Builds the app on GitHub's runners so nothing heavy has to happen on the
+# student's phone, and publishes the debug APK as a downloadable artifact.
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Assemble debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Make the Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Run the unit tests
+        # the solver tests and the screenshot vision tests both live here, so a
+        # red test stops the build rather than shipping a broken APK
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Assemble the debug APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: blockblast-player-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Summarise
+        run: |
+          echo "### Build complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "APK: app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download it from the job summary artifacts." >> "$GITHUB_STEP_SUMMARY"

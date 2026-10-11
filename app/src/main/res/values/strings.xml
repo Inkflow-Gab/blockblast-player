@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BlockBlast : Player</string>
+
+    <string name="overlay_channel_description">Keeps the suggestion overlay running while you play</string>
+    <string name="overlay_notification_title">Solver overlay is on</string>
+    <string name="overlay_notification_text">Tap the bubble to analyse. You place the pieces.</string>
+    <string name="overlay_analyze">Analyse now</string>
+    <string name="overlay_stop">Stop</string>
+
+    <string name="perm_overlay_title">1. Draw over the game</string>
+    <string name="perm_overlay_body">Android only lets an app draw on top of other apps if you switch this on yourself. You will be sent to the system Settings screen - nothing is installed and nothing is changed except this one switch.</string>
+    <string name="perm_capture_title">2. Read the game screen</string>
+    <string name="perm_capture_body">Android shows its own screen-capture dialog. Choose Block Blast and tap "Start recording". Each frame is analysed in memory and immediately thrown away. Nothing is stored, and this app contains no network code at all.</string>
+    <string name="perm_notifications_title">3. Show the small notification</string>
+    <string name="perm_notifications_body">Android 13 and newer needs your permission before an app can show a notification. This app only ever shows one, to let you stop the overlay. It never sends a message.</string>
+</resources>

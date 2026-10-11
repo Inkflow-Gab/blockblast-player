@@ -1,0 +1,38 @@
+---
+name: Vision bug
+about: The board or pieces were detected incorrectly
+title: "[vision] "
+labels: bug
+assignees: ''
+---
+
+**Where did this happen?**
+- [ ] Live overlay (screen capture)
+- [ ] Manual mode
+- [ ] Calibrate screen
+
+**Device**
+
+- Phone model:
+- Android version:
+- Screen resolution:
+- Display density:
+
+**What did you expect, and what happened?**
+
+<!-- e.g. "an empty cell was read as filled" -->
+
+**Game version / screen state**
+
+- [ ] Board is empty
+- [ ] Board has blocks
+- [ ] Something is drawn over the board (e.g. an FPS badge, a booster popup)
+
+**A screenshot of the Calibrate tab is ideal** — it shows exactly what the
+detector saw. Please add it.
+
+**Relevant numbers** (Calibrate tab shows these):
+
+- Detected panel:
+- Detected cell size:
+- Detected empty colour:

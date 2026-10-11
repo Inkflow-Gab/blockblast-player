@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base theme. Compose supplies the real colours; this only needs to be a
+         valid Material theme so the activity has something to start from. -->
+    <style name="Theme.BlockBlastPlayer" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
