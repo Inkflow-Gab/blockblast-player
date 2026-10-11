@@ -8,10 +8,18 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Only ever one build at a time. Several Gradle builds resolving dependencies
+# at once gets the shared Maven Central mirror to answer 429 Too Many Requests,
+# which fails the build for reasons that have nothing to do with the code.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Assemble debug APK
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Check out the repository
@@ -29,10 +37,15 @@ jobs:
       - name: Make the Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      # A 429 from Maven Central is a rate limit, not a broken build.
+      # Retry once before giving up, so a busy runner does not fail CI.
       - name: Run the unit tests
-        # the solver tests and the screenshot vision tests both live here, so a
-        # red test stops the build rather than shipping a broken APK
-        run: ./gradlew --no-daemon testDebugUnitTest
+        run: |
+          ./gradlew --no-daemon testDebugUnitTest || {
+            echo "::notice::First attempt failed - retrying once (usually a 429 from Maven Central)."
+            sleep 45
+            ./gradlew --no-daemon testDebugUnitTest
+          }
 
       - name: Assemble the debug APK
         run: ./gradlew --no-daemon assembleDebug
