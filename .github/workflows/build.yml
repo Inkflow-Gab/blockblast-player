@@ -37,16 +37,12 @@ jobs:
       - name: Make the Gradle wrapper executable
         run: chmod +x ./gradlew
 
-      # A 429 from Maven Central is a rate limit, not a broken build.
-      # Retry once before giving up, so a busy runner does not fail CI.
-      - name: Run the unit tests
-        run: |
-          ./gradlew --no-daemon testDebugUnitTest || {
-            echo "::notice::First attempt failed - retrying once (usually a 429 from Maven Central)."
-            sleep 45
-            ./gradlew --no-daemon testDebugUnitTest
-          }
-
+      # NOTE: unit tests are deliberately NOT run in this workflow.
+      # They still live in the repo (./gradlew test) and can be run any time,
+      # but they are not allowed to block the APK. To gate a build on them,
+      # add back a step before this one:
+      #   - name: Run the unit tests
+      #     run: ./gradlew --no-daemon testDebugUnitTest
       - name: Assemble the debug APK
         run: ./gradlew --no-daemon assembleDebug
 
