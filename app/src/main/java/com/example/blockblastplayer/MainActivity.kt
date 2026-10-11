@@ -78,19 +78,19 @@ class MainActivity : ComponentActivity() {
         screenCaptureLauncher.launch(intent)
     }
 
+    /**
+     * Both of these take a *callback*, so their type is ((A) -> B) -> Unit.
+     * Keeping that shape identical on both sides means a plain function
+     * reference just works - no adapter lambda, no inference games.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             BlockBlastTheme {
                 AppRoot(
-                    // requestScreenCapture *takes* a callback, so it has type
-                    // ((Int, Intent?) -> Unit) -> Unit. AppRoot wants a plain
-                    // (Int, Intent?) -> Unit, hence the small adapter.
-                    requestCapture = { callback -> requestScreenCapture(callback) },
-                    requestNotificationPermission = { callback ->
-                        requestNotificationPermission(callback)
-                    },
-                    openOverlaySettings = { openOverlaySettings() }
+                    startScreenCapture = ::requestScreenCapture,
+                    requestNotificationPermission = ::requestNotificationPermission,
+                    openOverlaySettings = ::openOverlaySettings
                 )
             }
         }
@@ -116,8 +116,8 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 
 @Composable
 private fun AppRoot(
-    requestCapture: (Int, Intent?) -> Unit,
-    requestNotificationPermission: (Boolean) -> Unit,
+    startScreenCapture: ((Int, Intent?) -> Unit) -> Unit,
+    requestNotificationPermission: ((Boolean) -> Unit) -> Unit,
     openOverlaySettings: () -> Unit
 ) {
     var tab by remember { mutableStateOf(Tab.MANUAL) }
@@ -140,7 +140,7 @@ private fun AppRoot(
             Tab.MANUAL -> ManualModeScreen(modifier)
             Tab.VISION -> VisionScreen(
                 modifier = modifier,
-                requestCapture = requestCapture,
+                startScreenCapture = startScreenCapture,
                 requestNotificationPermission = requestNotificationPermission,
                 openOverlaySettings = openOverlaySettings
             )

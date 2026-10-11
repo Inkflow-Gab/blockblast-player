@@ -48,8 +48,8 @@ import com.example.blockblastplayer.ui.manual.MiniPiece
 @Composable
 fun VisionScreen(
     modifier: Modifier = Modifier,
-    requestCapture: (Int, Intent?) -> Unit,
-    requestNotificationPermission: (Boolean) -> Unit,
+    startScreenCapture: ((Int, Intent?) -> Unit) -> Unit,
+    requestNotificationPermission: ((Boolean) -> Unit) -> Unit,
     openOverlaySettings: () -> Unit
 ) {
     val context = LocalContext.current
@@ -126,7 +126,7 @@ fun VisionScreen(
                 Button(
                     enabled = hasOverlay,
                     onClick = {
-                        requestCapture { code, data ->
+                        startScreenCapture { code, data ->
                             if (code != 0 || data == null) {
                                 lastRead = "Screen capture was cancelled."
                             } else {

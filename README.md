@@ -112,64 +112,132 @@ still have the full Manual mode.
 
 ## Architecture
 
+The app is one straight line of four stages. Nothing branches, nothing loops
+back, and only the last stage touches the screen.
+
 ```
-   ┌─────────────┐   one frame,     ┌──────────────┐   8x8 BooleanArray
-   │   CAPTURE   │   in memory      │    DETECT    │   + 3 Pieces
-   │             ├─────────────────►│              ├──────────────────┐
-   │ MediaProject│  RgbImage        │ flood fill + │  Solvable input  │
-   │ vision/     │  (IntArray,     │ cell-centre  │                  │
-   └─────────────┘   no Android)    │ sampling     │                  │
-                                      └──────────────┘                  │
-                                                                    ▼
-   ┌─────────────┐   ghost blocks    ┌──────────────┐
-   │   OVERLAY   │◄──────────────────┐│    SOLVE     │
-   │             │  List<Move>       │              │
-   │ TYPE_APP_   │───────────────────┤ 3! orders ×  │
-   │ OVERLAY     │   (r,c) × 3       │ every legal  │
-   │ NOT_TOUCH   │                   │ placement    │
-   └─────────────┘                   └──────────────┘
+ ┌───────────────────────────────────────────────────────────────────────────┐
+ │ 1. CAPTURE                                    vision/ScreenCapture.kt    │
+ │                                                                           │
+ │   MediaProjection ──► ImageReader ──► RgbImage(720 x 1600)                │
+ │                                                                           │
+ │   MediaProjection is the one permission that looks scary. Frames live in  │
+ │   memory for a few hundred ms and are then dropped. The app has no        │
+ │   INTERNET permission at all, so they cannot be sent anywhere.            │
+ └───────────────────────────────────┬───────────────────────────────────────┘
+                                     │  IntArray of 0xRRGGBB
+                                     ▼
+ ┌───────────────────────────────────────────────────────────────────────────┐
+ │ 2. DETECT                                     vision/BoardReader.kt      │
+ │                                                                           │
+ │   ┌─ GridDetector ─────────────┐      ┌─ TrayDetector ───────────────┐    │
+ │   │ flood fill the navy gap    │      │ colour blobs below the board │    │
+ │   │ network -> panel rect      │      │ -> block size -> shape      │    │
+ │   └─────────────┬──────────────┘      └──────────────┬───────────────┘    │
+ │                 │                                    │                    │
+ │   median-of-5 cell-centre sampling                   │                    │
+ │                 ▼                                    ▼                    │
+ │        8x8 BooleanArray              List<Piece>  (0..3 read)             │
+ └───────────────────────────────────┬───────────────────────────────────────┘
+                                     │  Solvable input  (pure Kotlin)
+                                     ▼
+ ┌───────────────────────────────────────────────────────────────────────────┐
+ │ 3. SOLVE                                 solver/BlockBlastSolver.kt       │
+ │                                                                           │
+ │   pass 1   3! orders x every legal position x every rotation              │
+ │            ~1.5M leaves, cheap terms only  -> shortlist of 256             │
+ │   pass 2   holes, fragments, free space, dead-end risk -> the winner       │
+ │                                                                           │
+ │   guards:  dead-end pruning  |  1.2 s time budget  |  node cap             │
+ └───────────────────────────────────┬───────────────────────────────────────┘
+                                     │  List<Move(pieceIndex, row, col)>
+                                     ▼
+ ┌───────────────────────────────────────────────────────────────────────────┐
+ │ 4. OVERLAY                                   overlay/OverlayService.kt    │
+ │                                                                           │
+ │   GhostOverlayView      TYPE_APPLICATION_OVERLAY                          │
+ │     numbered ghosts 1/2/3     FLAG_NOT_TOUCHABLE  <-- taps pass through   │
+ │     one colour per step                                                 │
+ │   FloatingButtonView    draggable | tap = analyse | tap = auto-refresh    │
+ │                                                                           │
+ │   a foreground service because Android 14 requires one for MediaProjection │
+ └───────────────────────────────────────────────────────────────────────────┘
 ```
+
+### The one boundary that matters
+
+```kotlin
+// vision/RgbImage.kt -- a plain array. No Bitmap, no Android anywhere.
+class RgbImage(val width: Int, val height: Int, val pixels: IntArray)
+```
+
+Stages 2 and 3 are written entirely against that single type. That is why:
+
+- the **identical** `BoardReader` runs on the phone *and* in a JVM unit test,
+- the tests load a **real JPEG** with `javax.imageio` and assert on it,
+- the solver has no idea a screen exists, so it is trivially testable.
+
+Change that type and you lose the whole testing story — see
+[CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ### Module layout
 
 ```
 app/src/main/java/com/example/blockblastplayer/
 │
-├── solver/        ✅ ZERO Android dependencies — runs in plain JVM tests
-│   ├── Board.kt              8x8 bool grid + 64-bit mask, kept in sync
-│   ├── Piece.kt              trimmed boolean matrix, rotations, ASCII art
-│   ├── PieceLibrary.kt       every Block Blast shape
-│   ├── BoardAnalysis.kt      holes, fragments, free space, dead-end risk
-│   ├── Heuristic.kt          the weights, as data
-│   └── BlockBlastSolver.kt   exhaustive search, two-pass scoring
+├── solver/          ZERO Android imports -- runs in plain JVM tests
+│   ├── Board.kt              8x8 grid held twice: BooleanArray for reading,
+│   │                         Long bitmask for the hot path, kept in sync
+│   ├── Piece.kt              trimmed boolean matrix + rotations + ASCII art
+│   ├── PieceLibrary.kt       every Block Blast shape the game deals
+│   ├── BoardAnalysis.kt      holes - empty regions - empty rectangles -
+│   │                         look-ahead risk (the "facts")
+│   ├── Heuristic.kt          the weights, as a plain data class
+│   └── BlockBlastSolver.kt   exhaustive search + two-pass scoring
 │
-├── vision/        ✅ BoardReader has no Android dependency
+├── vision/          BoardReader, GridDetector, TrayDetector are Android-free
 │   ├── RgbImage.kt           plain IntArray + colour distance
-│   ├── Calibration.kt        every measured constant, documented
-│   ├── BoardReader.kt        detect panel → read board
-│   ├── GridDetector.kt       flood fill + median cell sampling
-│   ├── TrayDetector.kt       colour blobs → piece shapes
-│   ├── CalibrationStore.kt   persists user tweaks
-│   ├── ScreenCapture.kt      MediaProjection → RgbImage
-│   └── LastFrame.kt          one frame, for the calibration preview
+│   ├── Calibration.kt        every measured constant, with its provenance
+│   ├── BoardReader.kt        detect panel -> read board  (the entry point)
+│   ├── GridDetector.kt       flood fill + median cell-centre sampling
+│   ├── TrayDetector.kt       colour blobs -> block size -> shape
+│   ├── CalibrationStore.kt   persists the user's tweaks
+│   ├── ScreenCapture.kt      MediaProjection -> RgbImage
+│   └── LastFrame.kt          the last frame, for the calibration preview
 │
 ├── overlay/
-│   ├── OverlayService.kt     foreground service: capture → solve → draw
+│   ├── OverlayService.kt     foreground service: capture -> solve -> draw
 │   ├── GhostOverlayView.kt   the numbered ghost blocks
 │   └── FloatingButtonView.kt the draggable bubble
 │
-└── ui/            Jetpack Compose
-    ├── MainActivity.kt       tabs + permission plumbing
-    ├── manual/               Manual mode + the shared 8x8 grid widget
-    ├── vision/               Live tab + Calibrate tab
-    ├── docs/                 "How it works"
-    └── theme/
+├── ui/              Jetpack Compose
+│   ├── MainActivity.kt       tabs + all permission plumbing
+│   ├── manual/               Manual mode + the shared 8x8 grid widget
+│   ├── vision/               Live tab + Calibrate tab
+│   ├── docs/                 "How it works"
+│   └── theme/
+│
+app/src/test/java/com/example/blockblastplayer/
+├── solver/          BoardTest - LineClearTest - BlockBlastSolverTest
+└── vision/          SampleScreenshotTest  (loads the real JPEGs)
 ```
 
-**The boundary that matters is `RgbImage`.** It is a plain `IntArray`, so the
-identical `BoardReader` runs on the phone *and* in the unit tests, loading a
-real JPEG through `javax.imageio`. That is what makes the screenshot tests real
-tests instead of decoration.
+### What talks to what
+
+| From | To | Via | Runs on | Note |
+|---|---|---|---|---|
+| `OverlayService` | `ScreenCapture` | MediaProjection | service thread | only while the service is up |
+| `OverlayService` | `BoardReader` | `RgbImage` | `Dispatchers.Default` | the one heavy step |
+| `OverlayService` | `BlockBlastSolver` | `Board` + `List<Piece>` | `Dispatchers.Default` | 1.2 s budget |
+| `OverlayService` | `GhostOverlayView` | `List<Move>` | main thread | results are posted back |
+| `OverlayService` | `CalibrationStore` | `Calibration` | service thread | re-read every analysis |
+| `VisionScreen` | `MainActivity` | callbacks | main thread | the only permission plumbing |
+| `CalibrationScreen` | `LastFrame` | `RgbImage` | main thread | preview only |
+| `ManualModeScreen` | `BlockBlastSolver` | `Board` + `List<Piece>` | `Dispatchers.Default` | **needs no permissions at all** |
+
+`ManualModeScreen` never touches the other three stages — it builds a `Board`
+from taps and goes straight to the solver. That is what makes the demo work
+with every permission switched off.
 
 ---
 
@@ -416,17 +484,26 @@ for the three invariants you should not break.
 
 ## Author
 
-Built as a school project on a low-end phone, with real screenshots and real
+Built as a school project, on a low-end phone, from real screenshots and real
 measurements rather than assumptions.
 
-<!-- Replace this with your own details before publishing. -->
 | | |
 |---|---|
-| **Developer** | *your name here* |
-| **GitHub** | *your profile link* |
-| **Project** | School project — game-solving algorithms and computer vision |
+| **Developer** | **Inkflow-Gab** |
+| **GitHub** | [@Inkflow-Gab](https://github.com/Inkflow-Gab) |
+| **Repository** | [Inkflow-Gab/blockblast-player](https://github.com/Inkflow-Gab/blockblast-player) |
+| **Built with** | Kotlin, Jetpack Compose, Gradle 8.7, AGP 8.5.2 |
+| **APK** | built by GitHub Actions → [Actions tab](https://github.com/Inkflow-Gab/blockblast-player/actions) |
 
-Questions about the algorithm or the vision pipeline? Open an issue; that is
+The measurement scripts used to derive the vision constants live in
+[`tools/`](tools), so every number in this README can be checked:
+
+```bash
+python3 tools/detect_final.py samples/shot1.jpg samples/shot2.jpg samples/shot3.jpg
+python3 tools/overlay_check.py  samples/shot3.jpg samples/shot3_marked.png
+```
+
+Questions about the algorithm or the vision pipeline? Open an issue — that is
 faster than email and helps the next person too.
 
 ---
