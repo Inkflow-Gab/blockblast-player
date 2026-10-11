@@ -3,8 +3,6 @@ package com.example.blockblastplayer.vision
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.awt.image.BufferedImage
-import javax.imageio.ImageIO
 
 /**
  * Loads one of the **real** Block Blast screenshots from `samples/` and runs
@@ -14,6 +12,11 @@ import javax.imageio.ImageIO
  * Everything they assert was measured with `tools/detect_final.py`, not
  * eyeballed - see [Calibration] for the numbers.
  *
+ * The fixtures are PNGs rather than the original JPEGs because Android unit
+ * tests have no `javax.imageio` - see [PngReader] for the full story. The
+ * PNGs are lossless, so the exact colours the detector is calibrated against
+ * are preserved.
+ *
  * The images are on the test classpath because `app/build.gradle.kts` adds
  * the repository's `samples/` folder as a test resource directory.
  */
@@ -22,13 +25,7 @@ class SampleScreenshotTest {
     private fun load(name: String): RgbImage {
         val stream = javaClass.classLoader!!.getResourceAsStream(name)
             ?: error("sample $name is not on the test classpath (expected in samples/)")
-        val buffered: BufferedImage = stream.use { ImageIO.read(it) }
-        val w = buffered.width
-        val h = buffered.height
-        val pixels = IntArray(w * h)
-        buffered.getRGB(0, 0, w, h, pixels, 0, w)
-        for (i in pixels.indices) pixels[i] = pixels[i] and 0xFFFFFF
-        return RgbImage(w, h, pixels)
+        return stream.use { PngReader.read(it) }
     }
 
     private fun boardAsStrings(board: com.example.blockblastplayer.solver.Board): List<String> =
@@ -42,7 +39,7 @@ class SampleScreenshotTest {
     // drawing the detected lattice over the image (tools/overlay_check.py).
     @Test
     fun `shot3 - a half full board is read exactly`() {
-        val image = load("shot3.jpg")
+        val image = load("shot3.png")
         val reading = BoardReader.read(image, Calibration())
 
         assertTrue("panel should be found", reading.panel.width > 0)
@@ -68,7 +65,7 @@ class SampleScreenshotTest {
 
     @Test
     fun `shot3 - the three tray pieces are recovered`() {
-        val image = load("shot3.jpg")
+        val image = load("shot3.png")
         val reading = BoardReader.read(image, Calibration())
         assertEquals(3, reading.pieces.size)
         // measured from the screenshot: a 2-wide bar, an S zigzag and a
@@ -84,7 +81,7 @@ class SampleScreenshotTest {
     // ---------------------------------------------------------------- shot2
     @Test
     fun `shot2 - an empty board is read as empty`() {
-        val image = load("shot2.jpg")
+        val image = load("shot2.png")
         val reading = BoardReader.read(image, Calibration())
         assertEquals(
             "detected panel",
@@ -96,7 +93,7 @@ class SampleScreenshotTest {
 
     @Test
     fun `shot2 - tray pieces are 2x1, 3 cells and 1x3`() {
-        val reading = BoardReader.read(load("shot2.jpg"), Calibration())
+        val reading = BoardReader.read(load("shot2.png"), Calibration())
         assertEquals(3, reading.pieces.size)
         val sorted = reading.pieces.sortedBy { it.size }
         assertEquals(2, sorted[0].size)   // the 1x2 domino
@@ -110,7 +107,7 @@ class SampleScreenshotTest {
     // ---------------------------------------------------------------- shot1
     @Test
     fun `shot1 - empty board apart from the floating FPS badge`() {
-        val image = load("shot1.jpg")
+        val image = load("shot1.png")
         val reading = BoardReader.read(image, Calibration())
         assertEquals(
             "detected panel",
@@ -127,7 +124,7 @@ class SampleScreenshotTest {
 
     @Test
     fun `shot1 - tray pieces are a 5 bar, an L and a T`() {
-        val reading = BoardReader.read(load("shot1.jpg"), Calibration())
+        val reading = BoardReader.read(load("shot1.png"), Calibration())
         assertEquals(3, reading.pieces.size)
         val five = reading.pieces.maxByOrNull { it.size }!!
         assertEquals(5, five.size)
@@ -140,7 +137,7 @@ class SampleScreenshotTest {
     // ------------------------------------------------------- shared numbers
     @Test
     fun `every sample detects a square panel about 642 px wide`() {
-        for (name in listOf("shot1.jpg", "shot2.jpg", "shot3.jpg")) {
+        for (name in listOf("shot1.png", "shot2.png", "shot3.png")) {
             val panel = GridDetector.detectPanel(load(name), Calibration())
             assertTrue("$name: no panel", panel != null)
             assertTrue("$name: width ${panel!!.width}", panel.width in 620..660)
@@ -153,7 +150,7 @@ class SampleScreenshotTest {
     @Test
     fun `empty and filled colours are far apart, so the threshold is safe`() {
         val calibration = Calibration()
-        val image = load("shot3.jpg")
+        val image = load("shot3.png")
         val panel = GridDetector.detectPanel(image, calibration)!!
         val board = GridDetector.readBoard(image, panel, calibration)
 
